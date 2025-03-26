@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 
-// Определяем массив с названиями голов (для выбора целевого имени)
 const headsData = [
   { name: 'Donk' },
   { name: 'Simple' },
@@ -13,18 +12,14 @@ export default function ControlPanel() {
   const [results, setResults] = useState([]);
   const [currentTarget, setCurrentTarget] = useState(null);
 
-  // Подписываемся на канал для получения результатов игры
   useEffect(() => {
     const channel = new BroadcastChannel('twitch-game');
 
     channel.onmessage = (event) => {
       if (event.data.command === 'result') {
-        // event.data содержит: { player, reactionTime }
         setResults((prevResults) => {
           const updatedResults = [...prevResults, event.data];
-          // Сортируем по времени реакции (чем меньше — тем лучше)
           updatedResults.sort((a, b) => a.reactionTime - b.reactionTime);
-          // Оставляем только топ 20
           return updatedResults.slice(0, 20);
         });
       }
@@ -35,15 +30,11 @@ export default function ControlPanel() {
     };
   }, []);
 
-  // При нажатии на кнопку выбирается случайная голова и начинается игра
   const handleStart = () => {
-    // Выбираем случайное целевое имя из массива
     const randomIndex = Math.floor(Math.random() * headsData.length);
     const targetName = headsData[randomIndex].name;
     setCurrentTarget(targetName);
-    // Очищаем предыдущие результаты
     setResults([]);
-    // Отправляем сообщение о начале игры с выбранным целевым именем
     const channel = new BroadcastChannel('twitch-game');
     channel.postMessage({ command: 'startGame', target: targetName });
     channel.close();
@@ -55,11 +46,7 @@ export default function ControlPanel() {
       <h1>Панель управления Twitch Extension</h1>
       <button 
         onClick={handleStart}
-        style={{
-          padding: '10px 20px',
-          fontSize: '16px',
-          cursor: 'pointer'
-        }}
+        style={{ padding: '10px 20px', fontSize: '16px', cursor: 'pointer' }}
       >
         Start Game
       </button>

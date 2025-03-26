@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 
-// Массив с данными для каждой головы (имя и путь к изображению)
 const headsData = [
   { name: 'Donk', src: '/donk.png' },
   { name: 'Simple', src: '/simple.png' },
@@ -17,37 +16,49 @@ export default function Game() {
   const [resultSent, setResultSent] = useState(false);
   const [feedback, setFeedback] = useState('');
 
-  // Запрашиваем имя игрока при загрузке страницы
+  // Получаем имя игрока через Twitch.ext.onAuthorized и API
   useEffect(() => {
-    let name = prompt("Введите ваше имя игрока:");
-    if (!name) {
-      name = "Игрок_" + Math.floor(Math.random() * 1000);
+    if (window.Twitch && window.Twitch.ext) {
+      window.Twitch.ext.onAuthorized(async (auth) => {
+        try {
+          const response = await fetch(`/api/getUser?token=${auth.token}`);
+          const data = await response.json();
+          if (data.data && data.data.length > 0) {
+            setPlayerName(data.data[0].display_name);
+          } else {
+            setPlayerName(auth.user_id);
+          }
+        } catch (error) {
+          console.error("Ошибка получения данных пользователя:", error);
+          setPlayerName(auth.user_id);
+        }
+      });
+    } else {
+      let name = prompt("Введите ваше имя игрока:");
+      if (!name) {
+        name = "Игрок_" + Math.floor(Math.random() * 1000);
+      }
+      setPlayerName(name);
     }
-    setPlayerName(name);
   }, []);
 
-  // Подписываемся на канал для получения команды старта игры
   useEffect(() => {
     const channel = new BroadcastChannel('twitch-game');
-
     channel.onmessage = (event) => {
       if (event.data.command === 'startGame') {
         startGame(event.data.target);
       }
     };
-
     return () => {
       channel.close();
     };
   }, []);
 
-  // Функция запуска игры: сохраняем целевое имя, время старта и генерируем случайные позиции для голов
   const startGame = (targetName) => {
     setResultSent(false);
     setFeedback('');
     setTarget(targetName);
     setStartTime(Date.now());
-
     const vw = window.innerWidth;
     const vh = window.innerHeight;
     const newHeads = headsData.map(() => ({
@@ -57,15 +68,11 @@ export default function Game() {
     setHeads(newHeads);
   };
 
-  // Обработка клика по изображению головы
   const handleHeadClick = (headName) => {
-    // Если игра не запущена или результат уже отправлен, ничего не делаем
     if (!target || resultSent) return;
-
     if (headName === target) {
       const reactionTime = Date.now() - startTime;
       setFeedback(`Правильно! Ваше время: ${reactionTime} мс`);
-      // Отправляем результат через BroadcastChannel
       const channel = new BroadcastChannel('twitch-game');
       channel.postMessage({ command: 'result', player: playerName, reactionTime });
       channel.close();
@@ -87,6 +94,9 @@ export default function Game() {
       }}
     >
       <h1 style={{ textAlign: 'center' }}>Игра Twitch Extension</h1>
+      <div style={{ textAlign: 'center', margin: '10px' }}>
+        <strong>Игрок:</strong> {playerName}
+      </div>
       {target && (
         <div style={{ textAlign: 'center', fontSize: '24px', margin: '20px' }}>
           Нажмите на голову: <strong>{target}</strong>
